@@ -6,6 +6,6 @@ COPY cmd/ cmd/
 COPY internal/ internal/
 RUN CGO_ENABLED=0 go build -o /bin/service ./cmd/shortener
 
-FROM scratch
+FROM alpine:3
 COPY --from=build /bin/service /bin/service
 ENTRYPOINT ["/bin/service"]
