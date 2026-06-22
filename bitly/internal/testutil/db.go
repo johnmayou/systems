@@ -19,7 +19,7 @@ func reset(t *testing.T, db *dbx.DB) {
         DO $$ DECLARE
             r RECORD;
         BEGIN
-            FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != 'schema_migrations')
+            FOR r IN (SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename != 'goose_db_version')
             LOOP
                 EXECUTE 'TRUNCATE TABLE ' || quote_ident(r.tablename) || ' RESTART IDENTITY CASCADE';
             END LOOP;
