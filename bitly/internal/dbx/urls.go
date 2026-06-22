@@ -2,8 +2,11 @@ package dbx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type Url struct {
@@ -40,9 +43,15 @@ func (db *DB) GetUrls(ctx context.Context, limit int) ([]Url, error) {
 	return urls, nil
 }
 
+var ErrDuplicateUrlShort = errors.New("short url already exists in database")
+
 func (db *DB) CreateUrl(ctx context.Context, userID, short, long string, expire *time.Time) (Url, error) {
 	u := Url{UserID: userID, Short: short, Long: long, ExpireAt: expire}
 	if err := db.WithContext(ctx).Create(&u).Error; err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "urls_short_key" {
+			return Url{}, ErrDuplicateUrlShort
+		}
 		return Url{}, fmt.Errorf("db: create url: %w", err)
 	}
 	return u, nil

@@ -2,12 +2,14 @@ package dbx_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/johnmayou/systems/bitly/internal/dbx"
 	"github.com/johnmayou/systems/bitly/internal/testutil"
 )
 
@@ -81,7 +83,7 @@ func TestCreateUrl(t *testing.T) {
 		testutil.NewUrl(t, db, testutil.UrlWithShort("dup"))
 		userID := testutil.NewUser(t, db).ID
 		_, err := db.CreateUrl(ctx, userID, "dup", "https://b.com", nil)
-		require.Error(t, err)
+		require.True(t, errors.Is(err, dbx.ErrDuplicateUrlShort))
 	})
 }
 
