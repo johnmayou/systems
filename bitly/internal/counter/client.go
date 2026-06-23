@@ -29,7 +29,7 @@ func (c *Client) GetCount(ctx context.Context) (int, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("counter: unexpectedd status %d", resp.StatusCode)
+		return 0, fmt.Errorf("counter: unexpected status %d", resp.StatusCode)
 	}
 
 	var body struct {
