@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,7 +29,7 @@ func TestGetUrlByID(t *testing.T) {
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		_, err := db.GetUrlByID(ctx, "1")
+		_, err := db.GetUrlByID(ctx, uuid.New().String())
 		require.Error(t, err)
 	})
 }
