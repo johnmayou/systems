@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 type Client struct {
@@ -13,7 +14,7 @@ type Client struct {
 }
 
 func NewClient(url string) *Client {
-	return &Client{url: url, http: http.Client{}}
+	return &Client{url: url, http: http.Client{Timeout: 10 * time.Second}}
 }
 
 func (c *Client) GetCount(ctx context.Context) (int, error) {
