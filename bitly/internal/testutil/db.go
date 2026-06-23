@@ -14,6 +14,13 @@ func NewTestDB(t *testing.T) *dbx.DB {
 	return db
 }
 
+func NewTestDBFromUrl(t *testing.T, url string) *dbx.DB {
+	db, err := dbx.New(url)
+	require.NoError(t, err)
+	reset(t, db)
+	return db
+}
+
 func reset(t *testing.T, db *dbx.DB) {
 	err := db.Exec(`
         DO $$ DECLARE
