@@ -23,11 +23,6 @@ type config struct {
 	CounterUrl  string `env:"COUNTER_URL,required"`
 }
 
-type handler struct {
-	urlStore urlStore
-	counter  *counter.Client
-}
-
 type urlStore interface {
 	CreateUrl(ctx context.Context, userID, short, long string, expire *time.Time) (dbx.Url, error)
 }
@@ -38,58 +33,63 @@ type createUrlRequest struct {
 	Expire *time.Time `json:"expire"`
 }
 
-func (h *handler) createUrl(c *gin.Context) {
-	var req createUrlRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	createUrl := func(short string) (dbx.Url, error) {
-		return h.urlStore.CreateUrl(
-			c.Request.Context(),
-			auth.UserID(c),
-			short,
-			req.Long,
-			req.Expire,
-		)
-	}
-
-	if req.Short == "" {
-		count, err := h.counter.GetCount(c.Request.Context())
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+func createUrlHandler(urlStore urlStore, counter *counter.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req createUrlRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		url, err := createUrl(strconv.Itoa(count))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+
+		createUrl := func(short string) (dbx.Url, error) {
+			return urlStore.CreateUrl(
+				c.Request.Context(),
+				auth.UserID(c),
+				short,
+				req.Long,
+				req.Expire,
+			)
 		}
-		c.JSON(http.StatusCreated, url)
-	} else {
-		url, err := createUrl(req.Short)
-		if err != nil {
-			if errors.Is(err, dbx.ErrDuplicateUrlShort) {
-				c.JSON(http.StatusConflict, gin.H{"error": "short already exists"})
-			} else {
+
+		if req.Short == "" {
+			count, err := counter.GetCount(c.Request.Context())
+			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
 			}
-			return
+			url, err := createUrl(strconv.Itoa(count))
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(http.StatusCreated, url)
+		} else {
+			url, err := createUrl(req.Short)
+			if err != nil {
+				if errors.Is(err, dbx.ErrDuplicateUrlShort) {
+					c.JSON(http.StatusConflict, gin.H{"error": "short already exists"})
+				} else {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				}
+				return
+			}
+			c.JSON(http.StatusCreated, url)
 		}
-		c.JSON(http.StatusCreated, url)
 	}
-
 }
 
-func newRouter(h *handler, jwtSecret string) *gin.Engine {
+func newRouter(
+	urlStore urlStore,
+	counter *counter.Client,
+	jwtSecret string,
+) *gin.Engine {
 	r := gin.Default()
-	r.GET("/up", healthx.HealthCheckHandler())
+	r.GET("/up", healthx.HealthCheckHandler)
 
 	api := r.Group("/api")
 	api.Use(auth.AuthMiddleware(jwtSecret))
 	{
-		api.POST("/urls", h.createUrl)
+		api.POST("/urls", createUrlHandler(urlStore, counter))
 	}
 
 	return r
@@ -107,10 +107,8 @@ func main() {
 	}
 
 	router := newRouter(
-		&handler{
-			urlStore: db,
-			counter:  counter.NewClient(cfg.CounterUrl),
-		},
+		db,
+		counter.NewClient(cfg.CounterUrl),
 		cfg.JwtSecret,
 	)
 

@@ -82,10 +82,11 @@ func newTestEnv(t *testing.T, opts ...func(*testEnv)) *testEnv {
 	require.NoError(t, err)
 
 	testenv := &testEnv{
-		router: newRouter(&handler{
-			urlStore: db,
-			counter:  counter.NewClient(counterSrv.URL),
-		}, testJwtSecret),
+		router: newRouter(
+			db,
+			counter.NewClient(counterSrv.URL),
+			testJwtSecret,
+		),
 		db:     db,
 		bearer: "Bearer " + tok,
 		userID: userID,
@@ -181,10 +182,11 @@ func TestUrls(t *testing.T) {
 		t.Cleanup(errSrv.Close)
 
 		env := newTestEnv(t, func(e *testEnv) {
-			e.router = newRouter(&handler{
-				urlStore: e.db,
-				counter:  counter.NewClient(errSrv.URL),
-			}, testJwtSecret)
+			e.router = newRouter(
+				e.db,
+				counter.NewClient(errSrv.URL),
+				testJwtSecret,
+			)
 		})
 
 		w := env.post(t, "/api/urls", createUrlRequest{Long: "https://example.com"})
