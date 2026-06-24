@@ -55,10 +55,11 @@ func TestMainBinary(t *testing.T) {
 const testJwtSecret = "secret"
 
 type testEnv struct {
-	router *gin.Engine
-	db     *dbx.DB
-	bearer string
-	userID string
+	router     *gin.Engine
+	db         *dbx.DB
+	bearer     string
+	userID     string
+	counterUrl string
 }
 
 func newTestEnv(t *testing.T, opts ...func(*testEnv)) *testEnv {
@@ -81,20 +82,21 @@ func newTestEnv(t *testing.T, opts ...func(*testEnv)) *testEnv {
 	tok, err := auth.IssueJwtToken(userID, "test@example.com", testJwtSecret)
 	require.NoError(t, err)
 
-	testenv := &testEnv{
-		router: newRouter(
-			db,
-			counter.NewClient(counterSrv.URL),
-			testJwtSecret,
-		),
-		db:     db,
-		bearer: "Bearer " + tok,
-		userID: userID,
+	e := &testEnv{
+		db:         db,
+		bearer:     "Bearer " + tok,
+		userID:     userID,
+		counterUrl: counterSrv.URL,
 	}
 	for _, opt := range opts {
-		opt(testenv)
+		opt(e)
 	}
-	return testenv
+	e.router = newRouter(
+		e.db,
+		counter.NewClient(e.counterUrl),
+		testJwtSecret,
+	)
+	return e
 }
 
 func (e *testEnv) post(t *testing.T, path string, body any) *httptest.ResponseRecorder {
@@ -181,13 +183,7 @@ func TestUrls(t *testing.T) {
 		}))
 		t.Cleanup(errSrv.Close)
 
-		env := newTestEnv(t, func(e *testEnv) {
-			e.router = newRouter(
-				e.db,
-				counter.NewClient(errSrv.URL),
-				testJwtSecret,
-			)
-		})
+		env := newTestEnv(t, func(e *testEnv) { e.counterUrl = errSrv.URL })
 
 		w := env.post(t, "/api/urls", createUrlRequest{Long: "https://example.com"})
 		require.Equal(t, http.StatusInternalServerError, w.Code)
